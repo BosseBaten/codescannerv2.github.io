@@ -185,6 +185,8 @@
     </div>
 
     <script>
+        let html5Qrcode;
+
         async function initializeScanners(deviceId = null) {
             showSpinner();
             try {
@@ -196,30 +198,26 @@
                 const videoElement = document.getElementById("camera-feed");
                 videoElement.srcObject = stream;
 
-                // ZXing Decoder Setup
-                const codeReader = new ZXing.BrowserQRCodeReader();
+                // HTML5 QR Code Scanning
+                html5Qrcode = new Html5Qrcode("camera-feed");
 
-                // Button to manually trigger QR code scan
-                const scanButton = document.getElementById('scan-button');
-                
-                scanButton.addEventListener('click', async () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = videoElement.videoWidth;
-                    canvas.height = videoElement.videoHeight;
-                    
-                    const context = canvas.getContext('2d');
-                    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-                    try {
-                        const result = await codeReader.decodeFromImage(canvas);
-                        console.log("QR Code detected:", result.getText());
-                        displayResult(result.getText());
-                        updateScanHistory(result.getText());
-                    } catch (err) {
-                        console.error("No QR code detected:", err);
-                        alert("No QR code detected. Please try again.");
+                // QR Code decoding callback
+                const qrCodeSuccessCallback = (decodedText) => {
+                    console.log("QR Code detected:", decodedText);
+                    displayResult(decodedText);
+                    updateScanHistory(decodedText);
+                    if (document.getElementById("auto-redirect-checkbox").checked) {
+                        redirectToPage();
                     }
-                });
+                };
+
+                const config = {
+                    fps: 30,
+                    qrbox: { width: 250, height: 250 }
+                };
+
+                // Start QR code scanning
+                await html5Qrcode.start({ deviceId }, qrCodeSuccessCallback, config);
             } catch (err) {
                 handleScannerError(err);
             } finally {
