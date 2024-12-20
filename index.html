@@ -116,6 +116,22 @@
             color: #333;
         }
 
+        #auto-redirect-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        #auto-redirect-checkbox {
+            transform: scale(1.2);
+        }
+
+        #auto-redirect-label {
+            font-size: 16px;
+            color: #333;
+        }
+
         #spinner {
             display: none;
             font-size: 18px;
@@ -138,6 +154,12 @@
                 <button id="redirect-button" onclick="redirectToPage()" disabled>Redirect</button>
             </div>
             <button id="rescan-button" onclick="startScanner()">Rescan QR Code</button>
+
+            <!-- Auto-Redirect Option -->
+            <div id="auto-redirect-container">
+                <input type="checkbox" id="auto-redirect-checkbox">
+                <label id="auto-redirect-label" for="auto-redirect-checkbox">Auto-redirect</label>
+            </div>
         </div>
 
         <div id="scan-history">
@@ -169,6 +191,11 @@
                         displayResult(result.getText());
                         updateScanHistory(result.getText());
                         stopScanner();  // Stop scanning after detecting the first QR code
+
+                        // Auto-redirect if the checkbox is checked
+                        if (document.getElementById("auto-redirect-checkbox").checked) {
+                            redirectToPage();
+                        }
                     }
 
                     if (error) {
