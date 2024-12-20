@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -177,11 +177,8 @@
                 <button id="copy-button" onclick="copyToClipboard()">Copy to Clipboard</button>
                 <button id="redirect-button" onclick="redirectToPage()" disabled>Redirect</button>
             </div>
-        <div id="auto-redirect-container">
-            <input type="checkbox" id="auto-redirect-checkbox">
-            <label id="auto-redirect-label" for="auto-redirect-checkbox">Auto-redirect</label>
+            <button id="scan-button">Scan QR Code</button>
         </div>
-    </div>
         <div id="scan-history">
             <h4>Scan History:</h4>
         </div>
@@ -199,30 +196,30 @@
                 const videoElement = document.getElementById("camera-feed");
                 videoElement.srcObject = stream;
 
-                const html5Qrcode = new Html5Qrcode("camera-feed");
-                const qrCodeConfig = {
-                    fps: 30,
-                    qrbox: { width: 250, height: 250 }
-                };
+                // ZXing Decoder Setup
+                const codeReader = new ZXing.BrowserQRCodeReader();
 
-                const qrCodeSuccessCallback = (decodedText) => {
-                    if (decodedText) {
-                        console.log("QR Code detected:", decodedText);
-                        displayResult(decodedText);
-                        updateScanHistory(decodedText);
-                        html5Qrcode.stop();
+                // Button to manually trigger QR code scan
+                const scanButton = document.getElementById('scan-button');
+                
+                scanButton.addEventListener('click', async () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = videoElement.videoWidth;
+                    canvas.height = videoElement.videoHeight;
+                    
+                    const context = canvas.getContext('2d');
+                    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
 
-                        if (document.getElementById("auto-redirect-checkbox").checked) {
-                            redirectToPage();
-                        }   
+                    try {
+                        const result = await codeReader.decodeFromImage(canvas);
+                        console.log("QR Code detected:", result.getText());
+                        displayResult(result.getText());
+                        updateScanHistory(result.getText());
+                    } catch (err) {
+                        console.error("No QR code detected:", err);
+                        alert("No QR code detected. Please try again.");
                     }
-                };
-
-                await html5Qrcode.start(
-                    { deviceId: deviceId },
-                    qrCodeConfig,
-                    qrCodeSuccessCallback
-                );
+                });
             } catch (err) {
                 handleScannerError(err);
             } finally {
