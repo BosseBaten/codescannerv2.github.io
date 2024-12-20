@@ -1,0 +1,319 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR & Barcode Scanner</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.1);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #camera-container {
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+        }
+
+        #camera-feed {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #result-container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #result-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        #camera-select, #copy-button, #redirect-button {
+            padding: 15px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            width: 100%;
+        }
+
+        #camera-select{
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        #copy-button {
+            background-color: #007bff;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        #redirect-button {
+            background-color: #28a745;
+            color: white;
+        }
+
+            #copy-button:hover, #redirect-button:hover {
+                transform: scale(1.05);
+            }
+
+            #redirect-button:disabled {
+                background-color: #ccc;
+                color: #666;
+                cursor: not-allowed;
+            }
+
+            #spinner {
+                display: none;
+                font-size: 18px;
+                color: #555;
+                margin-bottom: 15px;
+            }
+
+            #scan-history {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #f8f9fa;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                width: 100%;
+                max-width: 500px;
+            }
+
+            #scan-history h4 {
+                margin: 0 0 10px 0;
+            }
+
+            #scan-history div {
+                margin-bottom: 5px;
+                font-size: 14px;
+                color: #333;
+            }
+
+            #auto-redirect-container {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 10px;
+                margin-top: 10px;
+                width: 100%;
+            }
+
+            #auto-redirect-checkbox {
+                transform: scale(1.2);
+            }
+
+            #auto-redirect-label {
+                font-size: 16px;
+                color: #333;
+            }
+
+        @media (min-width: 768px) {
+            #container {
+                flex-direction: row;
+                justify-content: space-around;
+            }
+
+            #camera-container, #result-container {
+                width: 45%;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="camera-container">
+            <div id="spinner">Initializing camera...</div>
+            <video id="camera-feed" autoplay playsinline></video>
+            <select id="camera-select"></select>
+        </div>
+
+        <div id="result-container">
+            <input type="text" id="result-input" readonly placeholder="Scanned code:" />
+            <div>
+                <button id="copy-button" onclick="copyToClipboard()">Copy to Clipboard</button>
+                <button id="redirect-button" onclick="redirectToPage()" disabled>Redirect</button>
+            </div>
+        <div id="auto-redirect-container">
+            <input type="checkbox" id="auto-redirect-checkbox">
+            <label id="auto-redirect-label" for="auto-redirect-checkbox">Auto-redirect</label>
+        </div>
+    </div>
+        <div id="scan-history">
+            <h4>Scan History:</h4>
+        </div>
+    </div>
+
+    <script>
+        async function initializeScanners(deviceId = null) {
+            showSpinner();
+            try {
+                const constraints = {
+                    video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { exact: "environment" } }
+                };
+
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                const videoElement = document.getElementById("camera-feed");
+                videoElement.srcObject = stream;
+
+                const html5Qrcode = new Html5Qrcode("camera-feed");
+                const qrCodeConfig = {
+                    fps: 30,
+                    qrbox: { width: 250, height: 250 }
+                };
+
+                const qrCodeSuccessCallback = (decodedText) => {
+                    if (decodedText) {
+                        console.log("QR Code detected:", decodedText);
+                        displayResult(decodedText);
+                        updateScanHistory(decodedText);
+                        html5Qrcode.stop();
+
+                        if (document.getElementById("auto-redirect-checkbox").checked) {
+                            redirectToPage();
+                        }   
+                    }
+                };
+
+                await html5Qrcode.start(
+                    { deviceId: deviceId },
+                    qrCodeConfig,
+                    qrCodeSuccessCallback
+                );
+            } catch (err) {
+                handleScannerError(err);
+            } finally {
+                hideSpinner();
+            }
+        }
+
+        async function populateCameraOptions() {
+            const cameraSelect = document.getElementById("camera-select");
+            const videoInputDevices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = videoInputDevices.filter(device => device.kind === "videoinput");
+
+            if (videoDevices.length === 0) {
+                showError("No video input devices found. Please connect a camera.");
+                return;
+            }
+
+            videoDevices.forEach((device, index) => {
+                const option = document.createElement("option");
+                option.value = device.deviceId;
+                option.text = device.label || `Camera ${index + 1}`;
+                cameraSelect.appendChild(option);
+            });
+
+            cameraSelect.addEventListener("change", async (event) => {
+                const selectedDeviceId = event.target.value;
+                await initializeScanners(selectedDeviceId);
+            });
+        }
+
+        function updateScanHistory(resultText) {
+            const historyContainer = document.getElementById("scan-history");
+            const historyItem = document.createElement("div");
+            historyItem.textContent = resultText;
+            historyContainer.appendChild(historyItem);
+        }
+
+        function displayResult(resultText) {
+            const resultInput = document.getElementById("result-input");
+            const redirectButton = document.getElementById("redirect-button");
+
+            resultInput.value = resultText;
+            redirectButton.disabled = false;
+        }
+
+        function showError(message) {
+            alert(`Error: ${message}`);
+        }
+
+        function showSpinner() {
+            document.getElementById("spinner").style.display = "block";
+        }
+
+        function hideSpinner() {
+            document.getElementById("spinner").style.display = "none";
+        }
+
+        function copyToClipboard() {
+            const resultInput = document.getElementById("result-input");
+
+            resultInput.select();
+            resultInput.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(resultInput.value)
+                .then(() => {
+                    alert("Result copied to clipboard!");
+                })
+                .catch(err => {
+                    console.error("Failed to copy: ", err);
+                    alert("Failed to copy result.");
+                });
+        }
+
+        function redirectToPage() {
+            const resultText = document.getElementById("result-input").value;
+
+            if (!resultText) {
+                alert("No result to redirect!");
+                return;
+            }
+
+            const targetBaseUrl = "https://kwaliteitscontrole.bribus.nl";
+            const redirectUrl = `${targetBaseUrl}?IdentNr=${encodeURIComponent(resultText)}`;
+
+            window.location.href = redirectUrl;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await populateCameraOptions();
+            initializeScanners().catch(console.error);
+        });
+    </script>
+</body>
+</html>
