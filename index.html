@@ -68,7 +68,7 @@
             box-sizing: border-box;
         }
 
-        #copy-button, #redirect-button {
+        #copy-button, #redirect-button, #rescan-button {
             padding: 15px 30px;
             font-size: 16px;
             border: none;
@@ -88,6 +88,12 @@
             background-color: #28a745;
             color: white;
             cursor: not-allowed;
+        }
+
+        #rescan-button {
+            background-color: #ffc107;
+            color: white;
+            margin-top: 10px;
         }
 
         #scan-history {
@@ -131,6 +137,7 @@
                 <button id="copy-button" onclick="copyToClipboard()">Copy to Clipboard</button>
                 <button id="redirect-button" onclick="redirectToPage()" disabled>Redirect</button>
             </div>
+            <button id="rescan-button" onclick="startScanner()">Rescan QR Code</button>
         </div>
 
         <div id="scan-history">
@@ -139,13 +146,17 @@
     </div>
 
     <script>
-        // Initialize ZXing Barcode Scanner
         const codeReader = new ZXing.BrowserMultiFormatReader();
+        let isScanning = false;
 
+        // Function to start the QR scanner
         async function startScanner() {
-            try {
-                console.log("Initializing camera...");
+            if (isScanning) return; // Prevent starting multiple scans
 
+            isScanning = true;
+            console.log("Initializing camera...");
+
+            try {
                 // Attempt to get camera stream
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 const videoElement = document.getElementById("camera-feed");
@@ -157,6 +168,7 @@
                         console.log("QR Code detected:", result.getText());
                         displayResult(result.getText());
                         updateScanHistory(result.getText());
+                        stopScanner();  // Stop scanning after detecting the first QR code
                     }
 
                     if (error) {
@@ -169,6 +181,12 @@
                 console.error("Error initializing camera:", err);
                 alert("Unable to access the camera.");
             }
+        }
+
+        // Stop the scanner
+        function stopScanner() {
+            codeReader.reset(); // Reset the scanner to stop detecting
+            isScanning = false;
         }
 
         // Update scan history with detected result
