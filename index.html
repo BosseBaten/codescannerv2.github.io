@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR & Barcode Scanner</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/@zxing/library@0.18.6/umd/index.min.js"></script>
 
     <style>
         body {
@@ -116,7 +116,6 @@
             color: #555;
             margin-bottom: 15px;
         }
-
     </style>
 </head>
 <body>
@@ -140,36 +139,39 @@
     </div>
 
     <script>
-        async function initializeScanners() {
+        // Initialize ZXing Barcode Scanner
+        const codeReader = new ZXing.BrowserMultiFormatReader();
+
+        async function startScanner() {
             try {
                 console.log("Initializing camera...");
 
-                const constraints = { video: { facingMode: { exact: "environment" } } };
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                // Attempt to get camera stream
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 const videoElement = document.getElementById("camera-feed");
                 videoElement.srcObject = stream;
 
-                const html5Qrcode = new Html5Qrcode("camera-feed");
-                const qrCodeSuccessCallback = (decodedText) => {
-                    console.log("QR Code detected:", decodedText);
-                    displayResult(decodedText);
-                    updateScanHistory(decodedText);
-                    stopScanning();
-                };
+                // Start QR scanning from the camera feed
+                const result = await codeReader.decodeFromVideoDevice(null, 'camera-feed', (result, error) => {
+                    if (result) {
+                        console.log("QR Code detected:", result.getText());
+                        displayResult(result.getText());
+                        updateScanHistory(result.getText());
+                    }
 
-                const config = {
-                    fps: 30,
-                    qrbox: { width: 250, height: 250 }
-                };
+                    if (error) {
+                        console.error(error);
+                    }
+                });
 
-                console.log("Starting scanner...");
-                await html5Qrcode.start({ facingMode: "environment" }, qrCodeSuccessCallback, config);
+                console.log("Scanner initialized:", result);
             } catch (err) {
                 console.error("Error initializing camera:", err);
-                showError("Unable to access the camera.");
+                alert("Unable to access the camera.");
             }
         }
 
+        // Update scan history with detected result
         function updateScanHistory(resultText) {
             const historyContainer = document.getElementById("scan-history");
             const historyItem = document.createElement("div");
@@ -177,6 +179,7 @@
             historyContainer.appendChild(historyItem);
         }
 
+        // Display the result in input field
         function displayResult(resultText) {
             const resultInput = document.getElementById("result-input");
             const redirectButton = document.getElementById("redirect-button");
@@ -185,20 +188,22 @@
             redirectButton.disabled = false;
         }
 
-        function stopScanning() {
-            console.log("Stopping scanner...");
-            Html5Qrcode.getCameras().then(devices => {
-                if (devices && devices.length > 0) {
-                    const camera = devices[0];
-                    camera.stop();
-                }
-            });
+        // Redirect to a page using the result
+        function redirectToPage() {
+            const resultText = document.getElementById("result-input").value;
+
+            if (!resultText) {
+                alert("No result to redirect!");
+                return;
+            }
+
+            const targetBaseUrl = "https://kwaliteitscontrole.bribus.nl";
+            const redirectUrl = `${targetBaseUrl}?IdentNr=${encodeURIComponent(resultText)}`;
+
+            window.location.href = redirectUrl;
         }
 
-        function showError(message) {
-            alert(`Error: ${message}`);
-        }
-
+        // Copy result to clipboard
         function copyToClipboard() {
             const resultInput = document.getElementById("result-input");
 
@@ -215,22 +220,9 @@
                 });
         }
 
-        function redirectToPage() {
-            const resultText = document.getElementById("result-input").value;
-
-            if (!resultText) {
-                alert("No result to redirect!");
-                return;
-            }
-
-            const targetBaseUrl = "https://kwaliteitscontrole.bribus.nl";
-            const redirectUrl = `${targetBaseUrl}?IdentNr=${encodeURIComponent(resultText)}`;
-
-            window.location.href = redirectUrl;
-        }
-
+        // Start the scanner once the DOM is loaded
         document.addEventListener('DOMContentLoaded', async () => {
-            initializeScanners().catch(console.error);
+            startScanner().catch(console.error);
         });
     </script>
 </body>
